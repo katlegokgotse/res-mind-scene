@@ -4,9 +4,154 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        font-family: Arial, sans-serif;
+      }
+      
+      /* Loading Screen */
+      #loadingScreen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.8);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 999;
+        color: white;
+      }
+      
+      .spinner {
+        border: 5px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        border-top: 5px solid #fff;
+        width: 50px;
+        height: 50px;
+        animation: spin 1s linear infinite;
+        margin-bottom: 20px;
+      }
+      
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      
+      /* UI Overlay */
+      #ui-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 10;
+      }
+      
+      .instructions {
+        position: absolute;
+        top: 20px;
+        left: 0;
+        right: 0;
+        text-align: center;
+        background-color: rgba(0, 0, 0, 0.5);
+        color: white;
+        padding: 10px;
+        border-radius: 5px;
+        margin: 0 auto;
+        max-width: 80%;
+      }
+      
+      /* CTA Button */
+      .cta-container {
+        position: absolute;
+        bottom: 40px;
+        left: 0;
+        right: 0;
+        display: flex;
+        justify-content: center;
+        pointer-events: auto;
+      }
+      
+      .cta-button {
+        background-color: #FF5722;
+        color: white;
+        padding: 15px 30px;
+        border: none;
+        border-radius: 30px;
+        font-size: 18px;
+        font-weight: bold;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        cursor: pointer;
+        transition: transform 0.2s, background-color 0.2s;
+      }
+      
+      .cta-button:hover {
+        transform: scale(1.05);
+        background-color: #FF7043;
+      }
+      
+      /* Controls */
+      .controls {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        pointer-events: auto;
+      }
+      
+      .control-button {
+        background-color: rgba(0, 0, 0, 0.5);
+        color: white;
+        width: 50px;
+        height: 50px;
+        border: none;
+        border-radius: 50%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        cursor: pointer;
+        font-size: 20px;
+      }
+    </style>
   </head>
   <body>
-    <a-scene mindar-image="imageTargetSrc: ./targets.mind" color-space="sRGB" renderer="colorManagement: true, physicallyCorrectLights" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
+    <!-- Loading Screen -->
+    <div id="loadingScreen">
+      <div class="spinner"></div>
+      <p>Loading AR Experience...</p>
+    </div>
+    
+    <!-- UI Overlay -->
+    <div id="ui-overlay">
+      <div class="instructions">Point your camera at the target image</div>
+      
+      <div class="controls">
+        <button class="control-button" id="helpButton">?</button>
+        <button class="control-button" id="cameraButton">📷</button>
+      </div>
+      
+      <div class="cta-container">
+        <button class="cta-button" id="ctaButton">GET STARTED NOW</button>
+      </div>
+    </div>
+    
+    <!-- AR Scene -->
+    <a-scene 
+      mindar-image="imageTargetSrc: ./targets.mind; showStats: false; uiScanning: true;" 
+      color-space="sRGB" 
+      renderer="colorManagement: true; physicallyCorrectLights: true; antialias: true" 
+      vr-mode-ui="enabled: false" 
+      device-orientation-permission-ui="enabled: false"
+      loading-screen="enabled: false">
+      
       <a-assets>
         <img id="card" src="./novi_awesome.png" />
         <a-asset-item id="avatarModel" src="./novice.gltf"></a-asset-item>
@@ -15,15 +160,76 @@
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
       
       <a-entity mindar-image-target="targetIndex: 0">
-        <a-plane src="#card" position="0 0 0" height="0.552" width="1" rotation="0 0 0"></a-plane>
-        <a-gltf-model 
-          rotation="0 0 0" 
-          position="0 0 0.1" 
-          scale="0.005 0.005 0.005" 
+        <!-- Base card -->
+        <a-plane 
+          src="#card" 
+          position="0 0 0" 
+          height="0.552" 
+          width="1" 
+          rotation="0 0 0">
+        </a-plane>
+        
+        <!-- 3D Model with enhanced animation -->
+        <a-gltf-model
+          rotation="0 0 0"
+          position="0 0 0.1"
+          scale="0.005 0.005 0.005"
           src="#avatarModel"
-          animation="property: position; to: 0 0.1 0.1; dur: 1000; easing: easeInOutQuad; loop: true; dir: alternate">
+          animation-mixer="clip: *; loop: repeat; crossFadeDuration: 0.5"
+          animation__float="property: position; to: 0 0.1 0.1; dur: 1500; easing: easeInOutQuad; loop: true; dir: alternate"
+          animation__rotate="property: rotation; to: 0 360 0; dur: 10000; easing: linear; loop: true">
         </a-gltf-model>
+        
+        <!-- Particle effect for visual enhancement -->
+        <a-entity position="0 0 0.05">
+          <a-entity particle-system="preset: dust; particleCount: 100; color: #FF5722,#FFEB3B"></a-entity>
+        </a-entity>
       </a-entity>
     </a-scene>
+    
+    <script>
+      // Hide loading screen when AR scene is ready
+      const scene = document.querySelector('a-scene');
+      const loadingScreen = document.getElementById('loadingScreen');
+      
+      scene.addEventListener('loaded', function () {
+        setTimeout(() => {
+          loadingScreen.style.display = 'none';
+        }, 1000);
+      });
+      
+      // Show/hide instructions when target is found/lost
+      const sceneEl = document.querySelector('a-scene');
+      const instructions = document.querySelector('.instructions');
+      
+      sceneEl.addEventListener('targetFound', function() {
+        instructions.style.display = 'none';
+        document.querySelector('.cta-container').style.display = 'flex';
+      });
+      
+      sceneEl.addEventListener('targetLost', function() {
+        instructions.style.display = 'block';
+        document.querySelector('.cta-container').style.display = 'none';
+      });
+      
+      // Handle CTA button click
+      document.getElementById('ctaButton').addEventListener('click', function() {
+        window.location.href = 'https://example.com/signup';
+      });
+      
+      // Help button functionality
+      document.getElementById('helpButton').addEventListener('click', function() {
+        alert('Point your camera at the target image to see the 3D model. Click the GET STARTED NOW button to proceed.');
+      });
+      
+      // Camera button to take screenshot
+      document.getElementById('cameraButton').addEventListener('click', function() {
+        const canvas = document.querySelector('canvas');
+        const link = document.createElement('a');
+        link.download = 'ar-experience-screenshot.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+      });
+    </script>
   </body>
 </html>
