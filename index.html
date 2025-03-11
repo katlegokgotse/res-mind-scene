@@ -1,25 +1,186 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
+  <head>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AR Image Tracking</title>
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+      }
+      .ar-controls {
+        position: absolute;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 10;
+        display: flex;
+        gap: 10px;
+      }
+      .ar-button {
+        padding: 12px 20px;
+        background-color: rgba(0, 0, 0, 0.5);
+        color: white;
+        border: none;
+        border-radius: 20px;
+        cursor: pointer;
+        font-family: Arial, sans-serif;
+        font-weight: bold;
+      }
+      .loading-screen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.8);
+        color: white;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 999;
+      }
+      .instructions {
+        position: absolute;
+        top: 20px;
+        left: 0;
+        right: 0;
+        text-align: center;
+        background-color: rgba(0, 0, 0, 0.5);
+        color: white;
+        padding: 10px;
+        font-family: Arial, sans-serif;
+      }
+    </style>
   </head>
   <body>
-    <a-scene mindar-image="imageTargetSrc: ./targets.mind" color-space="sRGB" renderer="colorManagement: true, physicallyCorrectLights" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
-      <a-assets>
-	<img id="card" src="https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/examples/image-tracking/assets/card-example/card.png" />
-	<a-asset-item id="avatarModel" src="https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/examples/image-tracking/assets/card-example/softmind/scene.gltf"></a-asset-item>
+    <div class="instructions" id="instructions">
+      Point your camera at the target image
+    </div>
+    
+    <div class="loading-screen" id="loading">
+      <h2>Loading AR Experience</h2>
+      <p>Please wait...</p>
+    </div>
+    
+    <div class="ar-controls">
+      <button class="ar-button" id="resetBtn">Reset</button>
+      <button class="ar-button" id="captureBtn">Capture</button>
+    </div>
+    
+    <a-scene 
+      mindar-image="imageTargetSrc: ./targets.mind; uiScanning: false;" 
+      color-space="sRGB" 
+      renderer="colorManagement: true; physicallyCorrectLights" 
+      vr-mode-ui="enabled: false" 
+      device-orientation-permission-ui="enabled: false"
+      loading-screen="enabled: false">
+      
+      <a-assets> 
+        <img id="card" src="https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/examples/image-tracking/assets/card-example/card.png" /> 
+        <a-asset-item id="avatarModel" src="https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/examples/image-tracking/assets/card-example/softmind/scene.gltf"></a-asset-item>
       </a-assets>
-
+      
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
-
+      
       <a-entity mindar-image-target="targetIndex: 0">
         <a-plane src="#card" position="0 0 0" height="0.552" width="1" rotation="0 0 0"></a-plane>
-        <a-gltf-model rotation="0 0 0 " position="0 0 0.1" scale="0.005 0.005 0.005" src="#avatarModel"
-          animation="property: position; to: 0 0.1 0.1; dur: 1000; easing: easeInOutQuad; loop: true; dir: alternate"
-        >
+        <a-gltf-model 
+          rotation="0 0 0" 
+          position="0 0 0.1" 
+          scale="0.005 0.005 0.005" 
+          src="#avatarModel"
+          animation="property: position; to: 0 0.1 0.1; dur: 1000; easing: easeInOutQuad; loop: true; dir: alternate">
+        </a-gltf-model>
       </a-entity>
     </a-scene>
+    
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        const sceneEl = document.querySelector('a-scene');
+        const loadingScreen = document.getElementById('loading');
+        const instructions = document.getElementById('instructions');
+        const resetBtn = document.getElementById('resetBtn');
+        const captureBtn = document.getElementById('captureBtn');
+        
+        // Set up video constraints to use the rear camera
+        navigator.mediaDevices.enumerateDevices()
+          .then(function(devices) {
+            const videoDevices = devices.filter(device => device.kind === 'videoinput');
+            let rearCameraId = null;
+            
+            // Most devices list the rear camera last in mobile devices
+            // or we can look for "environment" in the label
+            for (const device of videoDevices) {
+              if (device.label.toLowerCase().includes('back') || 
+                  device.label.toLowerCase().includes('rear') ||
+                  device.label.toLowerCase().includes('environment')) {
+                rearCameraId = device.deviceId;
+                break;
+              }
+            }
+            
+            // If we couldn't identify a specific rear camera, use the last one
+            // (common for mobile devices)
+            if (!rearCameraId && videoDevices.length > 1) {
+              rearCameraId = videoDevices[videoDevices.length - 1].deviceId;
+            }
+            
+            // Set the camera constraints
+            if (rearCameraId) {
+              const mindARComponent = document.querySelector('a-scene').systems['mindar-image-system'];
+              
+              // Override the video constraints to use the rear camera
+              if (mindARComponent) {
+                mindARComponent.arSystem.cameraSource.override({
+                  video: {
+                    deviceId: { exact: rearCameraId },
+                    facingMode: 'environment'
+                  }
+                });
+              }
+            }
+          })
+          .catch(function(err) {
+            console.error('Error enumerating devices:', err);
+          });
+        
+        // Hide loading screen when AR scene is loaded
+        sceneEl.addEventListener('loaded', function() {
+          loadingScreen.style.display = 'none';
+        });
+        
+        // Show/hide instructions based on target finding
+        sceneEl.addEventListener('targetFound', function() {
+          instructions.textContent = "Target found!";
+          setTimeout(() => {
+            instructions.style.opacity = '0';
+          }, 2000);
+        });
+        
+        sceneEl.addEventListener('targetLost', function() {
+          instructions.style.opacity = '1';
+          instructions.textContent = "Target lost. Please point at the image again.";
+        });
+        
+        // Reset button functionality
+        resetBtn.addEventListener('click', function() {
+          location.reload();
+        });
+        
+        // Capture button functionality
+        captureBtn.addEventListener('click', function() {
+          const canvas = document.querySelector('canvas');
+          const link = document.createElement('a');
+          link.download = 'ar-capture.png';
+          link.href = canvas.toDataURL('image/png');
+          link.click();
+        });
+      });
+    </script>
   </body>
 </html>
