@@ -6,24 +6,111 @@
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
     <script>
-        AFRAME.registerComponent('circular-movement', {
+        AFRAME.registerComponent('animation-controller', {
             init: function() {
+                // Initial state for circular movement
                 this.angle = 0;
                 this.radius = 0.15;
                 this.centerY = 0.05;
                 this.centerZ = 0.1;
+                this.circleComplete = false;
+                this.messageShown = false;
+                
+                // State for bounce animation
+                this.bounceMode = false;
+                this.bouncePosition = new THREE.Vector3(0, 0, 0.1);
+                this.bounceVelocity = 0.01;
+                this.bounceHeight = 0.2;
+                this.bounceMin = 0;
+                
+                // Create the message entity that will show when circle completes
+                this.messageEl = document.createElement('a-entity');
+                this.messageEl.setAttribute('text', {
+                    value: 'We are done going in circles',
+                    color: 'white',
+                    width: 1,
+                    anchor: 'center',
+                    align: 'center'
+                });
+                this.messageEl.setAttribute('position', '0 0.25 0.1');
+                this.messageEl.setAttribute('visible', false);
+                
+                // Create a background for the text to make it readable
+                this.bgEl = document.createElement('a-plane');
+                this.bgEl.setAttribute('color', '#333');
+                this.bgEl.setAttribute('opacity', '0.8');
+                this.bgEl.setAttribute('width', '0.8');
+                this.bgEl.setAttribute('height', '0.15');
+                this.bgEl.setAttribute('position', '0 0.25 0.09');
+                this.bgEl.setAttribute('visible', false);
+                
+                // Add message elements to the parent entity
+                const parentEntity = this.el.parentNode;
+                parentEntity.appendChild(this.bgEl);
+                parentEntity.appendChild(this.messageEl);
             },
-            tick: function() {
-                this.angle += 0.01;
-                const x = this.radius * Math.cos(this.angle);
-                const y = this.centerY + (this.radius * 0.5 * Math.sin(this.angle));
-                const z = this.centerZ;
-                
-                this.el.setAttribute('position', {x: x, y: y, z: z});
-                
-                // Rotate the cube to face the direction of movement
-                const rotationY = (Math.atan2(Math.cos(this.angle), -Math.sin(this.angle)) * 180 / Math.PI) + 90;
-                this.el.setAttribute('rotation', {x: 0, y: rotationY, z: 0});
+            
+            tick: function(time, deltaTime) {
+                if (!this.bounceMode) {
+                    // Circular movement
+                    this.angle += 0.01;
+                    const x = this.radius * Math.cos(this.angle);
+                    const y = this.centerY + (this.radius * 0.5 * Math.sin(this.angle));
+                    const z = this.centerZ;
+                    
+                    this.el.setAttribute('position', {x: x, y: y, z: z});
+                    
+                    // Rotate cube to face direction of movement
+                    const rotationY = (Math.atan2(Math.cos(this.angle), -Math.sin(this.angle)) * 180 / Math.PI) + 90;
+                    this.el.setAttribute('rotation', {x: 0, y: rotationY, z: 0});
+                    
+                    // Check if one full circle is completed (2π radians)
+                    if (this.angle >= 2 * Math.PI && !this.circleComplete) {
+                        this.circleComplete = true;
+                        this.messageEl.setAttribute('visible', true);
+                        this.bgEl.setAttribute('visible', true);
+                        
+                        // Set timeout to hide message and start bouncing after 2 seconds
+                        setTimeout(() => {
+                            this.messageEl.setAttribute('visible', false);
+                            this.bgEl.setAttribute('visible', false);
+                            this.bounceMode = true;
+                            
+                            // Set initial position for bouncing
+                            this.bouncePosition.set(0, 0, 0.1);
+                            this.el.setAttribute('position', this.bouncePosition);
+                            this.el.setAttribute('rotation', {x: 0, y: 0, z: 0});
+                        }, 2000);
+                    }
+                } else {
+                    // Bouncing animation
+                    this.bouncePosition.y += this.bounceVelocity;
+                    
+                    // Reverse direction if reaching max height or min height
+                    if (this.bouncePosition.y >= this.bounceHeight || this.bouncePosition.y <= this.bounceMin) {
+                        this.bounceVelocity *= -1;
+                        
+                        // Add a small random x movement when bouncing
+                        const randomX = (Math.random() - 0.5) * 0.05;
+                        this.bouncePosition.x += randomX;
+                        
+                        // Keep within bounds
+                        if (Math.abs(this.bouncePosition.x) > 0.2) {
+                            this.bouncePosition.x *= 0.8;
+                        }
+                    }
+                    
+                    // Update position
+                    this.el.setAttribute('position', this.bouncePosition);
+                    
+                    // Add a little spin when bouncing
+                    const currentRotation = this.el.getAttribute('rotation');
+                    this.el.setAttribute('rotation', {
+                        x: currentRotation.x + 1,
+                        y: currentRotation.y + 1,
+                        z: currentRotation.z
+                    });
+                }
             }
         });
     </script>
@@ -37,7 +124,8 @@
         <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
         
         <a-entity mindar-image-target="targetIndex: 0">
-          <a-box position="0 0 0.1" rotation="0 0 0" width="0.1" height="0.1" depth="0.1" color="#00ff00" circular-movement></a-box>
+            <a-plane src="#card" position="0 0 0" height="0.552" width="1" rotation="0 0 0"></a-plane>
+            <a-box position="0 0 0.1" rotation="0 0 0" width="0.1" height="0.1" depth="0.1" color="#00ff00" animation-controller></a-box>
         </a-entity>
     </a-scene>
 </body>
