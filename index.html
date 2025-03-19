@@ -4,21 +4,68 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.155.0/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.155.0/examples/js/loaders/GLTFLoader.js"></script>
 </head>
 <body>
     <a-scene mindar-image="imageTargetSrc: ./targets.mind;" color-space="sRGB" renderer="colorManagement: true, physicallyCorrectLights" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
         <a-assets>
             <img id="card" src="novi_awesome.png" />
-            <a-asset-item id="avatarModel" src="novice.gltf"></a-asset-item>
+            <a-asset-item id="avatarModel" src="./novice.gltf"></a-asset-item>
         </a-assets>
 
         <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
         <a-entity mindar-image-target="targetIndex: 0">
             <a-plane src="#card" position="0 0 0" height="0.552" width="1" rotation="0 0 0"></a-plane>
-            <a-gltf-model rotation="0 0 0" position="0 0 0.1" scale="0.005 0.005 0.005" src="#avatarModel"
-                animation="property: position; to: 0 0.1 0.1; dur: 1000; easing: easeInOutQuad; loop: true; dir: alternate">
-            </a-gltf-model>
+
+            <a-entity id="threejs-model-container"></a-entity>
+
+            <script>
+                AFRAME.registerComponent('threejs-model', {
+                    init: function () {
+                        const sceneEl = this.el.sceneEl;
+                        const container = this.el;
+                        const loader = new THREE.GLTFLoader();
+
+                        loader.load('./novice.gltf', (gltf) => {
+                            const model = gltf.scene;
+                            model.scale.set(0.005, 0.005, 0.005);
+                            model.position.set(0, 0, 0.1);
+                            container.setObject3D('model', model);
+
+                            // Animation
+                            const startPosition = new THREE.Vector3(0, 0, 0.1);
+                            const endPosition = new THREE.Vector3(0, 0.1, 0.1);
+                            let currentPosition = startPosition.clone();
+                            let direction = 1; // 1 for moving up, -1 for moving down
+
+                            function animate() {
+                                if (direction === 1) {
+                                    currentPosition.lerp(endPosition, 0.01);
+                                    if (currentPosition.distanceTo(endPosition) < 0.001) {
+                                        direction = -1;
+                                    }
+                                } else {
+                                    currentPosition.lerp(startPosition, 0.01);
+                                    if (currentPosition.distanceTo(startPosition) < 0.001) {
+                                        direction = 1;
+                                    }
+                                }
+                                model.position.copy(currentPosition);
+                                requestAnimationFrame(animate);
+                            }
+
+                            animate();
+
+                        }, undefined, function (error) {
+                            console.error('An error happened loading the GLTF model:', error);
+                        });
+                    }
+                });
+
+                document.getElementById('threejs-model-container').setAttribute('threejs-model', '');
+            </script>
         </a-entity>
     </a-scene>
 </body>
