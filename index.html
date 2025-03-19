@@ -22,6 +22,9 @@
                 this.bounceVelocity = 0.01;
                 this.bounceHeight = 0.2;
                 this.bounceMin = 0;
+                this.bounceCount = 0;
+                this.lastBounceDirection = 1; // 1 for up, -1 for down
+                this.approachMode = false;
                 
                 // Create the message entity that will show when circle completes
                 this.messageEl = document.createElement('a-entity');
@@ -44,14 +47,22 @@
                 this.bgEl.setAttribute('position', '0 0.25 0.09');
                 this.bgEl.setAttribute('visible', false);
                 
-                // Add message elements to the parent entity
+                // Create sound for bounce
+                this.soundEl = document.createElement('a-entity');
+                this.soundEl.setAttribute('sound', {
+                    src: 'url(https://cdn.aframe.io/basic-guide/audio/click.ogg)',
+                    positional: false
+                });
+                
+                // Add elements to the parent entity
                 const parentEntity = this.el.parentNode;
                 parentEntity.appendChild(this.bgEl);
                 parentEntity.appendChild(this.messageEl);
+                parentEntity.appendChild(this.soundEl);
             },
             
             tick: function(time, deltaTime) {
-                if (!this.bounceMode) {
+                if (!this.bounceMode && !this.approachMode) {
                     // Circular movement
                     this.angle += 0.01;
                     const x = this.radius * Math.cos(this.angle);
@@ -82,23 +93,78 @@
                             this.el.setAttribute('rotation', {x: 0, y: 0, z: 0});
                         }, 2000);
                     }
-                } else {
+                } else if (this.bounceMode) {
                     // Bouncing animation
                     this.bouncePosition.y += this.bounceVelocity;
                     
+                    // Detect if direction changed from up to down (bounce occurred)
+                    const currentDirection = this.bounceVelocity > 0 ? 1 : -1;
+                    
                     // Reverse direction if reaching max height or min height
-                    if (this.bouncePosition.y >= this.bounceHeight || this.bouncePosition.y <= this.bounceMin) {
+                    if ((this.bouncePosition.y >= this.bounceHeight && currentDirection > 0) || 
+                        (this.bouncePosition.y <= this.bounceMin && currentDirection < 0)) {
+                        
                         this.bounceVelocity *= -1;
                         
-                        // Add a small random x movement when bouncing
-                        const randomX = (Math.random() - 0.5) * 0.05;
-                        this.bouncePosition.x += randomX;
-                        
-                        // Keep within bounds
-                        if (Math.abs(this.bouncePosition.x) > 0.2) {
-                            this.bouncePosition.x *= 0.8;
+                        // If we hit the ground (direction changes from down to up)
+                        if (currentDirection < 0 && this.bounceVelocity > 0) {
+                            // Play bounce sound
+                            this.soundEl.components.sound.playSound();
+                            
+                            // Count the bounce
+                            this.bounceCount++;
+                            
+                            // Add a small random x movement when bouncing
+                            const randomX = (Math.random() - 0.5) * 0.05;
+                            this.bouncePosition.x += randomX;
+                            
+                            // Keep within bounds
+                            if (Math.abs(this.bouncePosition.x) > 0.2) {
+                                this.bouncePosition.x *= 0.8;
+                            }
+                            
+                            // After 3 bounces, switch to approach mode
+                            if (this.bounceCount >= 3) {
+                                // Create final message
+                                const finalMessageEl = document.createElement('a-entity');
+                                finalMessageEl.setAttribute('text', {
+                                    value: "Here I come!",
+                                    color: 'white',
+                                    width: 1,
+                                    anchor: 'center',
+                                    align: 'center'
+                                });
+                                finalMessageEl.setAttribute('position', '0 0.3 0.1');
+                                
+                                const finalBgEl = document.createElement('a-plane');
+                                finalBgEl.setAttribute('color', '#333');
+                                finalBgEl.setAttribute('opacity', '0.8');
+                                finalBgEl.setAttribute('width', '0.5');
+                                finalBgEl.setAttribute('height', '0.15');
+                                finalBgEl.setAttribute('position', '0 0.3 0.09');
+                                
+                                const parentEntity = this.el.parentNode;
+                                parentEntity.appendChild(finalBgEl);
+                                parentEntity.appendChild(finalMessageEl);
+                                
+                                // Switch to approach mode
+                                setTimeout(() => {
+                                    this.bounceMode = false;
+                                    this.approachMode = true;
+                                    this.approachStart = new THREE.Vector3().copy(this.bouncePosition);
+                                    this.approachProgress = 0;
+                                    
+                                    // Remove the message after 1.5 seconds
+                                    setTimeout(() => {
+                                        parentEntity.removeChild(finalMessageEl);
+                                        parentEntity.removeChild(finalBgEl);
+                                    }, 1500);
+                                }, 500);
+                            }
                         }
                     }
+                    
+                    this.lastBounceDirection = currentDirection;
                     
                     // Update position
                     this.el.setAttribute('position', this.bouncePosition);
@@ -110,6 +176,42 @@
                         y: currentRotation.y + 1,
                         z: currentRotation.z
                     });
+                } else if (this.approachMode) {
+                    // Approach animation - move toward the camera/user
+                    this.approachProgress += 0.01;
+                    if (this.approachProgress >= 1) {
+                        this.approachProgress = 1;
+                    }
+                    
+                    // Start from current position and move to a point closer to the camera
+                    const targetPos = {x: 0, y: 0, z: 0.6};
+                    
+                    // Ease-in-out function for smoother animation
+                    const easeProgress = this.approachProgress < 0.5 ? 
+                        2 * this.approachProgress * this.approachProgress :
+                        1 - Math.pow(-2 * this.approachProgress + 2, 2) / 2;
+                    
+                    // Linear interpolation between start and target positions
+                    const newPosition = {
+                        x: this.approachStart.x + (targetPos.x - this.approachStart.x) * easeProgress,
+                        y: this.approachStart.y + (targetPos.y - this.approachStart.y) * easeProgress,
+                        z: this.approachStart.z + (targetPos.z - this.approachStart.z) * easeProgress
+                    };
+                    
+                    // Update cube size as it comes closer - make it appear larger
+                    const scale = 1 + easeProgress * 1.5;
+                    this.el.setAttribute('scale', {x: scale, y: scale, z: scale});
+                    
+                    // Update position
+                    this.el.setAttribute('position', newPosition);
+                    
+                    // Slow rotation during approach
+                    const currentRotation = this.el.getAttribute('rotation');
+                    this.el.setAttribute('rotation', {
+                        x: currentRotation.x + 0.5,
+                        y: currentRotation.y + 0.5,
+                        z: currentRotation.z + 0.5
+                    });
                 }
             }
         });
@@ -119,6 +221,7 @@
     <a-scene mindar-image="imageTargetSrc: ./targets.mind;" color-space="sRGB" renderer="colorManagement: true, physicallyCorrectLights" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
         <a-assets>
             <img id="card" src="novi_awesome.png" />
+            <audio id="bounceSound" src="https://cdn.aframe.io/basic-guide/audio/click.ogg" preload="auto"></audio>
         </a-assets>
         
         <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
