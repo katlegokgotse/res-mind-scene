@@ -5,13 +5,11 @@
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.155.0/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.155.0/examples/js/loaders/GLTFLoader.js"></script>
 </head>
 <body>
     <a-scene mindar-image="imageTargetSrc: ./targets.mind;" color-space="sRGB" renderer="colorManagement: true, physicallyCorrectLights" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
         <a-assets>
             <img id="card" src="novi_awesome.png" />
-            <a-asset-item id="avatarModel" src="./novice.gltf"></a-asset-item>
         </a-assets>
 
         <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
@@ -19,52 +17,48 @@
         <a-entity mindar-image-target="targetIndex: 0">
             <a-plane src="#card" position="0 0 0" height="0.552" width="1" rotation="0 0 0"></a-plane>
 
-            <a-entity id="threejs-model-container"></a-entity>
+            <a-entity id="threejs-cube-container"></a-entity>
 
             <script>
-                AFRAME.registerComponent('threejs-model', {
+                AFRAME.registerComponent('threejs-cube', {
                     init: function () {
                         const sceneEl = this.el.sceneEl;
                         const container = this.el;
-                        const loader = new THREE.GLTFLoader();
 
-                        loader.load('./novice.gltf', (gltf) => {
-                            const model = gltf.scene;
-                            model.scale.set(0.005, 0.005, 0.005);
-                            model.position.set(0, 0, 0.1);
-                            container.setObject3D('model', model);
+                        const geometry = new THREE.BoxGeometry(0.1, 0.1, 0.1);
+                        const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 }); // Green cube
+                        const cube = new THREE.Mesh(geometry, material);
 
-                            // Animation
-                            const startPosition = new THREE.Vector3(0, 0, 0.1);
-                            const endPosition = new THREE.Vector3(0, 0.1, 0.1);
-                            let currentPosition = startPosition.clone();
-                            let direction = 1; // 1 for moving up, -1 for moving down
+                        cube.position.set(0, 0, 0.1); // Position in front of the target
+                        container.setObject3D('cube', cube);
 
-                            function animate() {
-                                if (direction === 1) {
-                                    currentPosition.lerp(endPosition, 0.01);
-                                    if (currentPosition.distanceTo(endPosition) < 0.001) {
-                                        direction = -1;
-                                    }
-                                } else {
-                                    currentPosition.lerp(startPosition, 0.01);
-                                    if (currentPosition.distanceTo(startPosition) < 0.001) {
-                                        direction = 1;
-                                    }
+                        // Animation
+                        const startPosition = new THREE.Vector3(0, 0, 0.1);
+                        const endPosition = new THREE.Vector3(0, 0.1, 0.1);
+                        let currentPosition = startPosition.clone();
+                        let direction = 1;
+
+                        function animate() {
+                            if (direction === 1) {
+                                currentPosition.lerp(endPosition, 0.01);
+                                if (currentPosition.distanceTo(endPosition) < 0.001) {
+                                    direction = -1;
                                 }
-                                model.position.copy(currentPosition);
-                                requestAnimationFrame(animate);
+                            } else {
+                                currentPosition.lerp(startPosition, 0.01);
+                                if (currentPosition.distanceTo(startPosition) < 0.001) {
+                                    direction = 1;
+                                }
                             }
+                            cube.position.copy(currentPosition);
+                            requestAnimationFrame(animate);
+                        }
 
-                            animate();
-
-                        }, undefined, function (error) {
-                            console.error('An error happened loading the GLTF model:', error);
-                        });
+                        animate();
                     }
                 });
 
-                document.getElementById('threejs-model-container').setAttribute('threejs-model', '');
+                document.getElementById('threejs-cube-container').setAttribute('threejs-cube', '');
             </script>
         </a-entity>
     </a-scene>
