@@ -4,6 +4,73 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/loaders/GLTFLoader.js"></script>
+    <script>
+        AFRAME.registerComponent('threejs-gltf-circle-animation', {
+            schema: {
+                modelUrl: {type: 'string', default: 'novice.gltf'}
+            },
+            
+            init: function() {
+                // Store reference to component
+                const self = this;
+                const el = this.el;
+                
+                // Animation parameters
+                this.radius = 0.1;
+                this.angle = 0;
+                this.speed = 0.01;
+                this.center = new THREE.Vector3(0, 0, 0.1);
+                
+                // Create a group to hold the model
+                this.modelGroup = new THREE.Group();
+                el.object3D.add(this.modelGroup);
+                
+                // Setup the GLTF loader
+                const loader = new THREE.GLTFLoader();
+                loader.load(
+                    this.data.modelUrl,
+                    function(gltf) {
+                        // Scale the model
+                        gltf.scene.scale.set(0.005, 0.005, 0.005);
+                        
+                        // Add the loaded model to our group
+                        self.modelGroup.add(gltf.scene);
+                        
+                        // Initial position
+                        self.modelGroup.position.copy(self.center);
+                        
+                        console.log('GLTF model loaded successfully');
+                    },
+                    function(xhr) {
+                        console.log('GLTF loading: ' + (xhr.loaded / xhr.total * 100) + '% loaded');
+                    },
+                    function(error) {
+                        console.error('Error loading GLTF model:', error);
+                    }
+                );
+            },
+            
+            tick: function() {
+                // Update the angle for circular motion
+                if (this.modelGroup) {
+                    this.angle += this.speed;
+                    
+                    // Calculate new position in a circle
+                    const x = this.center.x + this.radius * Math.cos(this.angle);
+                    const y = this.center.y + 0.05;
+                    const z = this.center.z + this.radius * Math.sin(this.angle);
+                    
+                    // Update model position
+                    this.modelGroup.position.set(x, y, z);
+                    
+                    // Make the model always face the center
+                    this.modelGroup.lookAt(this.center);
+                }
+            }
+        });
+    </script>
 </head>
 <body>
     <a-scene mindar-image="imageTargetSrc: ./targets.mind;" color-space="sRGB" renderer="colorManagement: true, physicallyCorrectLights" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
@@ -16,9 +83,7 @@
 
         <a-entity mindar-image-target="targetIndex: 0">
             <a-plane src="#card" position="0 0 0" height="0.552" width="1" rotation="0 0 0"></a-plane>
-            <a-gltf-model rotation="0 0 0" position="0 0 0.1" scale="0.005 0.005 0.005" src="#avatarModel"
-                animation="property: position; to: 0 0.1 0.1; dur: 1000; easing: easeInOutQuad; loop: true; dir: alternate">
-            </a-gltf-model>
+            <a-entity threejs-gltf-circle-animation="modelUrl: novice.gltf"></a-entity>
         </a-entity>
     </a-scene>
 </body>
