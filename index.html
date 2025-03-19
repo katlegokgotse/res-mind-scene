@@ -5,6 +5,28 @@
     <title>AR WebApp with A-Frame and MindAR</title>
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+    <script>
+        AFRAME.registerComponent('circular-movement', {
+            init: function() {
+                this.angle = 0;
+                this.radius = 0.15;
+                this.centerY = 0.05;
+                this.centerZ = 0.1;
+            },
+            tick: function() {
+                this.angle += 0.01;
+                const x = this.radius * Math.cos(this.angle);
+                const y = this.centerY + (this.radius * 0.5 * Math.sin(this.angle));
+                const z = this.centerZ;
+                
+                this.el.setAttribute('position', {x: x, y: y, z: z});
+                
+                // Rotate the cube to face the direction of movement
+                const rotationY = (Math.atan2(Math.cos(this.angle), -Math.sin(this.angle)) * 180 / Math.PI) + 90;
+                this.el.setAttribute('rotation', {x: 0, y: rotationY, z: 0});
+            }
+        });
+    </script>
 </head>
 <body>
     <a-scene mindar-image="imageTargetSrc: ./targets.mind;" color-space="sRGB" renderer="colorManagement: true, physicallyCorrectLights" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
@@ -16,7 +38,7 @@
         
         <a-entity mindar-image-target="targetIndex: 0">
             <a-plane src="#card" position="0 0 0" height="0.552" width="1" rotation="0 0 0"></a-plane>
-            <a-box position="0 0 0.1" rotation="0 0 0" width="0.1" height="0.1" depth="0.1" color="#00ff00" animation="property: position; to: 0 0.1 0.1; dir: alternate; dur: 1000; loop: true; easing: easeInOutQuad"></a-box>
+            <a-box position="0 0 0.1" rotation="0 0 0" width="0.1" height="0.1" depth="0.1" color="#00ff00" circular-movement></a-box>
         </a-entity>
     </a-scene>
 </body>
